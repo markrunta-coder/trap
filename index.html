@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Are You Ready to Retire? | The Retirement Trap</title>
     <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700;900&family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family:'Source Sans Pro','Segoe UI',sans-serif; background:#faf9f7; color:#1c1917; line-height:1.6; }
@@ -73,12 +75,24 @@
         .action-btn:hover { border-color:#1e40af; color:#1e40af; background:#f8faff; }
         .action-btn svg { width:18px; height:18px; }
         .modal-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.6); display:flex; align-items:center; justify-content:center; z-index:1000; animation:fadeIn 0.2s ease; }
-        .modal { background:white; border-radius:12px; padding:28px; width:90%; max-width:380px; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
-        .modal h3 { font-family:'Merriweather',Georgia,serif; font-size:18px; margin-bottom:16px; }
-        .modal input { width:100%; padding:12px 14px; border:1.5px solid #e7e5e4; border-radius:8px; margin-bottom:14px; font-size:15px; font-family:inherit; }
+        .modal { background:white; border-radius:12px; padding:28px; width:90%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+        .modal h3 { font-family:'Merriweather',Georgia,serif; font-size:18px; margin-bottom:6px; }
+        .modal .modal-subtitle { color:#78716c; font-size:14px; margin-bottom:18px; }
+        .modal input[type="text"], .modal input[type="email"] { width:100%; padding:12px 14px; border:1.5px solid #e7e5e4; border-radius:8px; margin-bottom:12px; font-size:15px; font-family:inherit; }
         .modal input:focus { outline:none; border-color:#1e40af; }
-        .modal-btns { display:flex; gap:10px; }
+        .modal input.field-error { border-color:#dc2626; }
+        .modal-btns { display:flex; gap:10px; margin-top:6px; }
         .modal-btns .btn { flex:1; text-align:center; }
+        .modal label.checkbox-label { display:flex; align-items:flex-start; gap:10px; font-size:14px; color:#57534e; margin-bottom:16px; cursor:pointer; line-height:1.4; }
+        .modal label.checkbox-label input[type="checkbox"] { margin-top:3px; width:16px; height:16px; accent-color:#1e40af; }
+        .confirm-modal { text-align:center; }
+        .confirm-modal p { font-size:15px; color:#44403c; margin-bottom:20px; line-height:1.5; }
+        .confirm-btns { display:flex; gap:10px; justify-content:center; }
+        .confirm-btns .btn { min-width:100px; text-align:center; }
+        .btn-danger { background:#dc2626; color:white; }
+        .btn-danger:hover { background:#b91c1c; }
+        .spinner { display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin 0.6s linear infinite; vertical-align:middle; margin-right:8px; }
+        @keyframes spin { to{transform:rotate(360deg)} }
         @media print {
             body { background:white; }
             .action-row, .modal-overlay, .cta-box { display:none !important; }
@@ -97,130 +111,301 @@
 <div id="app"></div>
 <div id="modal"></div>
 <script>
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║  EMAILJS CONFIG — Replace these three values from emailjs.com   ║
+// ╚══════════════════════════════════════════════════════════════════╝
+const EMAILJS_PUBLIC_KEY  = 'PcgDzTNxXca5hvzH5';
+const EMAILJS_SERVICE_ID  = 'service_28b4c5m';
+const EMAILJS_TEMPLATE_ID = 'template_e47xk5j';
+const OWNER_EMAIL = 'tkumar3@yahoo.com';
+
+emailjs.init(EMAILJS_PUBLIC_KEY);
+
+// ─── Data ───
 const questions = [
-    {q:"When you think about retirement, what excites you most?", cat:"Identity & Purpose", a:["Finally having time to relax and do nothing","Getting away from work stress","Spending more time on hobbies I enjoy","Starting new projects and pursuing meaningful goals"]},
-    {q:"How do you introduce yourself at social gatherings?", cat:"Identity & Purpose", a:["By my job title or company","By what I used to do professionally","By a mix of work and personal interests","By my interests, values, or what I'm currently working on"]},
-    {q:"If your typical week suddenly had no structure, you would:", cat:"Identity & Purpose", a:["Feel lost without a schedule","Welcome the break but worry after a few weeks","Have some ideas but need time to figure it out","Know exactly how I'd fill my time meaningfully"]},
-    {q:"If the market dropped 30% in your first year of retirement, you would:", cat:"Financial Readiness", a:["Panic and consider going back to work","Feel very stressed and unsure what to do","Be concerned but know I have a plan to adjust","Stay calm\u2014my withdrawal strategy accounts for this"]},
-    {q:"How confident are you in your Social Security claiming strategy?", cat:"Financial Readiness", a:["I haven't thought about timing at all","I know I should wait, but I'm not sure why","I've done some research and have a general idea","I've run the numbers and know my optimal claiming age"]},
-    {q:"When it comes to spending in retirement:", cat:"Financial Readiness", a:["I'm not sure how much I can safely spend","I have a rough budget but no withdrawal plan","I know my safe withdrawal rate but haven't tested it","I have a dynamic withdrawal strategy with guardrails"]},
-    {q:"Have you and your spouse discussed what daily life looks like in retirement?", cat:"Relationships & Household", a:["No, we haven't had that conversation","We've talked casually but made no decisions","We've discussed expectations but haven't written anything down","We've had structured conversations and aligned on boundaries"]},
-    {q:"How much time do you currently spend with friends outside of work?", cat:"Relationships & Household", a:["Almost none\u2014my social life is mostly work-based","Occasionally, but it's not consistent","Regularly, but I'll need to rebuild after retirement","I have strong friendships independent of work"]},
-    {q:"If you and your spouse were home together every day:", cat:"Relationships & Household", a:["We'd probably drive each other crazy","It would be an adjustment we'd figure out","We'd need some ground rules but we'd be fine","We've already discussed space, routines, and boundaries"]},
-    {q:"How would you rate your current physical health?", cat:"Health & Longevity", a:["Poor\u2014I've been neglecting it for years","Fair\u2014I know I need to make changes","Good\u2014I exercise sometimes but not consistently","Excellent\u2014I have a consistent fitness routine"]},
-    {q:"When was your last comprehensive health screening?", cat:"Health & Longevity", a:["More than 3 years ago (or never)","1\u20132 years ago","Within the past year","Within the past 6 months, and I know my key health metrics"]},
-    {q:"How do you challenge your brain regularly?", cat:"Health & Longevity", a:["I don't\u2014most of my time is passive consumption (TV, scrolling)","Occasionally through work, but not intentionally","I read regularly and do some puzzles","I'm actively learning new skills or languages"]},
-    {q:"Do you have updated legal documents (will, POA, healthcare directive)?", cat:"Logistics & Planning", a:["No, I haven't done any of this","I have some outdated documents","I have updated documents but haven't communicated them","Everything is current and my family knows where to find them"]},
-    {q:"If something happened to you tomorrow, could your spouse access critical accounts?", cat:"Logistics & Planning", a:["No\u2014they wouldn't know where to start","Maybe\u2014some things are documented, others aren't","Mostly\u2014we've discussed it but haven't organized everything","Yes\u2014we have a complete digital estate plan and command center"]},
-    {q:"How clear are you on what you'll do in the first 90 days of retirement?", cat:"Logistics & Planning", a:["No idea\u2014I'll figure it out when I get there","Some general thoughts but no plan","I have ideas but haven't committed to anything specific","I have a written 90-day transition plan with concrete actions"]}
+    {q:"When you think about retirement, what excites you most?",cat:"Identity & Purpose",a:["Finally having time to relax and do nothing","Getting away from work stress","Spending more time on hobbies I enjoy","Starting new projects and pursuing meaningful goals"]},
+    {q:"How do you introduce yourself at social gatherings?",cat:"Identity & Purpose",a:["By my job title or company","By what I used to do professionally","By a mix of work and personal interests","By my interests, values, or what I\u2019m currently working on"]},
+    {q:"If your typical week suddenly had no structure, you would:",cat:"Identity & Purpose",a:["Feel lost without a schedule","Welcome the break but worry after a few weeks","Have some ideas but need time to figure it out","Know exactly how I\u2019d fill my time meaningfully"]},
+    {q:"If the market dropped 30% in your first year of retirement, you would:",cat:"Financial Readiness",a:["Panic and consider going back to work","Feel very stressed and unsure what to do","Be concerned but know I have a plan to adjust","Stay calm\u2014my withdrawal strategy accounts for this"]},
+    {q:"How confident are you in your Social Security claiming strategy?",cat:"Financial Readiness",a:["I haven\u2019t thought about timing at all","I know I should wait, but I\u2019m not sure why","I\u2019ve done some research and have a general idea","I\u2019ve run the numbers and know my optimal claiming age"]},
+    {q:"When it comes to spending in retirement:",cat:"Financial Readiness",a:["I\u2019m not sure how much I can safely spend","I have a rough budget but no withdrawal plan","I know my safe withdrawal rate but haven\u2019t tested it","I have a dynamic withdrawal strategy with guardrails"]},
+    {q:"Have you and your spouse discussed what daily life looks like in retirement?",cat:"Relationships & Household",a:["No, we haven\u2019t had that conversation","We\u2019ve talked casually but made no decisions","We\u2019ve discussed expectations but haven\u2019t written anything down","We\u2019ve had structured conversations and aligned on boundaries"]},
+    {q:"How much time do you currently spend with friends outside of work?",cat:"Relationships & Household",a:["Almost none\u2014my social life is mostly work-based","Occasionally, but it\u2019s not consistent","Regularly, but I\u2019ll need to rebuild after retirement","I have strong friendships independent of work"]},
+    {q:"If you and your spouse were home together every day:",cat:"Relationships & Household",a:["We\u2019d probably drive each other crazy","It would be an adjustment we\u2019d figure out","We\u2019d need some ground rules but we\u2019d be fine","We\u2019ve already discussed space, routines, and boundaries"]},
+    {q:"How would you rate your current physical health?",cat:"Health & Longevity",a:["Poor\u2014I\u2019ve been neglecting it for years","Fair\u2014I know I need to make changes","Good\u2014I exercise sometimes but not consistently","Excellent\u2014I have a consistent fitness routine"]},
+    {q:"When was your last comprehensive health screening?",cat:"Health & Longevity",a:["More than 3 years ago (or never)","1\u20132 years ago","Within the past year","Within the past 6 months, and I know my key health metrics"]},
+    {q:"How do you challenge your brain regularly?",cat:"Health & Longevity",a:["I don\u2019t\u2014most of my time is passive consumption (TV, scrolling)","Occasionally through work, but not intentionally","I read regularly and do some puzzles","I\u2019m actively learning new skills or languages"]},
+    {q:"Do you have updated legal documents (will, POA, healthcare directive)?",cat:"Logistics & Planning",a:["No, I haven\u2019t done any of this","I have some outdated documents","I have updated documents but haven\u2019t communicated them","Everything is current and my family knows where to find them"]},
+    {q:"If something happened to you tomorrow, could your spouse access critical accounts?",cat:"Logistics & Planning",a:["No\u2014they wouldn\u2019t know where to start","Maybe\u2014some things are documented, others aren\u2019t","Mostly\u2014we\u2019ve discussed it but haven\u2019t organized everything","Yes\u2014we have a complete digital estate plan and command center"]},
+    {q:"How clear are you on what you\u2019ll do in the first 90 days of retirement?",cat:"Logistics & Planning",a:["No idea\u2014I\u2019ll figure it out when I get there","Some general thoughts but no plan","I have ideas but haven\u2019t committed to anything specific","I have a written 90-day transition plan with concrete actions"]}
 ];
+
 const tierData = {
-    ready: {
-        badge:"READY", badgeClass:"badge-ready",
-        headline:"You're Ready\u2014But Stay Sharp",
-        body:`<p>You've done the work most people skip. You understand that retirement is a transition, not a reward. You've thought beyond the money and built structure around purpose, relationships, health, and logistics.</p><p><strong>Your biggest risk: Overconfidence.</strong> Even with preparation, the emotional arc will surprise you. Stay vigilant for disenchantment phases and adjust.</p>`,
+    ready:{badge:"READY",badgeClass:"badge-ready",headline:"You\u2019re Ready\u2014But Stay Sharp",
+        body:'<p>You\u2019ve done the work most people skip. You understand that retirement is a transition, not a reward. You\u2019ve thought beyond the money and built structure around purpose, relationships, health, and logistics.</p><p><strong>Your biggest risk: Overconfidence.</strong> Even with preparation, the emotional arc will surprise you. Stay vigilant for disenchantment phases and adjust.</p>',
+        bodyPlain:"You've done the work most people skip. You understand that retirement is a transition, not a reward. You've thought beyond the money and built structure around purpose, relationships, health, and logistics.\n\nYour biggest risk: Overconfidence. Even with preparation, the emotional arc will surprise you. Stay vigilant for disenchantment phases and adjust.",
         steps:["Execute your 90-day transition plan in the first quarter","Revisit your withdrawal guardrails quarterly as markets shift","Schedule your Kitchen Table Summit with your spouse in Month 1","Download Tool 3 (Disenchantment Alert Tracker) to monitor emotional phases"],
-        chapterNote:"Recommended chapter focus: Chapter 3 (Emotional Arc), Chapter 15 (Legacy in Motion)"
-    },
-    almost: {
-        badge:"ALMOST THERE", badgeClass:"badge-almost",
-        headline:"Close\u2014But Fill These Gaps",
-        body:`<p>You're ahead of most people, but there are critical gaps that could derail your transition. You've likely focused heavily on one area (probably finances) while neglecting others (identity, relationships, logistics).</p><p>Review your answers. Where did you score 0\u20131 points? Those are your vulnerabilities. Common gaps at this level include: no withdrawal strategy or guardrails, no structured spouse conversations about daily life, outdated legal documents, no plan for social connection, and health neglected during working years.</p>`,
+        chapterNote:"Recommended chapter focus: Chapter 3 (Emotional Arc), Chapter 15 (Legacy in Motion)"},
+    almost:{badge:"ALMOST THERE",badgeClass:"badge-almost",headline:"Close\u2014But Fill These Gaps",
+        body:'<p>You\u2019re ahead of most people, but there are critical gaps that could derail your transition. You\u2019ve likely focused heavily on one area (probably finances) while neglecting others (identity, relationships, logistics).</p><p>Review your answers. Where did you score 0\u20131 points? Those are your vulnerabilities. Common gaps at this level include: no withdrawal strategy or guardrails, no structured spouse conversations about daily life, outdated legal documents, no plan for social connection, and health neglected during working years.</p>',
+        bodyPlain:"You're ahead of most people, but there are critical gaps that could derail your transition. You've likely focused heavily on one area (probably finances) while neglecting others (identity, relationships, logistics).\n\nReview your answers. Where did you score 0-1 points? Those are your vulnerabilities. Common gaps at this level include: no withdrawal strategy or guardrails, no structured spouse conversations about daily life, outdated legal documents, no plan for social connection, and health neglected during working years.",
         steps:["This month: Complete the Decision Audit (Tool 1) to identify your weakest areas","This quarter: Address your two lowest-scoring categories with specific action","Before retiring: Schedule Kitchen Table Summit with spouse (Chapter 11)"],
-        chapterNote:"Recommended chapter focus: Whatever category you scored lowest in\u2014start there."
-    },
-    work: {
-        badge:"WORK TO DO", badgeClass:"badge-work",
-        headline:"You're Not Ready\u2014Here's How to Get There",
-        body:`<p>You're thinking about retirement, but you haven't built the infrastructure to make it work. Right now, you're headed for the retirement trap: enough money, no roadmap.</p><p><strong>The reality:</strong> Most men at this level retire anyway. They assume financial security equals readiness. Six months in, they're restless, directionless, and wondering why retirement doesn't feel like they expected.</p><p>You don't need motivation. You need structure\u2014frameworks for the five areas you're unprepared for: Identity (who are you without your title?), Purpose (what will you do when no one's telling you what to do?), Finances (a withdrawal strategy, not just a number), Relationships (what does daily life look like with your spouse?), and Logistics (can anyone access your accounts if something happens?).</p>`,
-        steps:["Read The Retirement Trap from start to finish\u2014don't skip chapters","Complete the Decision Audit (Tool 1) before making any retirement decision","If you're within 12 months of retiring, delay until you've addressed gaps","Schedule conversations: spouse (Ch. 11), financial advisor (Ch. 6), estate attorney (Ch. 14)"],
-        chapterNote:"Timeline: 6\u201312 months of structured prep. Start with Chapter 1 (Decision Audit), then Chapters 2\u20134 (Identity/Purpose), then your lowest-scoring category."
-    },
-    notReady: {
-        badge:"NOT READY", badgeClass:"badge-not",
-        headline:"Don't Retire Yet",
-        body:`<p>If you retired tomorrow, you would struggle. Not because you lack resources\u2014because you lack preparation. Retirement isn't a vacation. It's a life redesign. Right now, you have no design.</p><p><strong>Hard truth:</strong> You're likely focused on one question: "Do I have enough money?" That's the wrong question. The right question is: "Am I ready for what comes after the paycheck stops?" Based on your answers, you're not.</p><p>Here's what happens if you retire now: Months 1\u20133, a honeymoon phase that feels great. Months 4\u20136, restlessness and shapeless days. Months 7\u201312, identity crisis, marriage friction, social isolation. Year 2+, you either course-correct or drift into depression, health decline, and resentment.</p>`,
-        steps:["Don't set a retirement date yet\u2014you're not ready","Read The Retirement Trap cover to cover\u2014this is your roadmap","Work through every tool as you read each chapter","Build a withdrawal strategy (not just a portfolio balance)","Define what you'll do with your time\u2014actual plans, not \"relax\"","Have explicit conversations with your spouse about daily life","Update legal documents and organize your digital estate","Get a comprehensive health screening and build a fitness baseline","Retake this quiz in 6 months\u2014don't retire until you score 28+"],
-        chapterNote:"Timeline: 12\u201318 months minimum. Start immediately with Chapter 1 (Decision Audit). Don't skip ahead."
-    }
+        chapterNote:"Recommended chapter focus: Whatever category you scored lowest in\u2014start there."},
+    work:{badge:"WORK TO DO",badgeClass:"badge-work",headline:"You\u2019re Not Ready\u2014Here\u2019s How to Get There",
+        body:'<p>You\u2019re thinking about retirement, but you haven\u2019t built the infrastructure to make it work. Right now, you\u2019re headed for the retirement trap: enough money, no roadmap.</p><p><strong>The reality:</strong> Most men at this level retire anyway. They assume financial security equals readiness. Six months in, they\u2019re restless, directionless, and wondering why retirement doesn\u2019t feel like they expected.</p><p>You don\u2019t need motivation. You need structure\u2014frameworks for the five areas you\u2019re unprepared for: Identity (who are you without your title?), Purpose (what will you do when no one\u2019s telling you what to do?), Finances (a withdrawal strategy, not just a number), Relationships (what does daily life look like with your spouse?), and Logistics (can anyone access your accounts if something happens?).</p>',
+        bodyPlain:"You're thinking about retirement, but you haven't built the infrastructure to make it work. Right now, you're headed for the retirement trap: enough money, no roadmap.\n\nThe reality: Most men at this level retire anyway. They assume financial security equals readiness. Six months in, they're restless, directionless, and wondering why retirement doesn't feel like they expected.\n\nYou don't need motivation. You need structure - frameworks for the five areas you're unprepared for: Identity (who are you without your title?), Purpose (what will you do when no one's telling you what to do?), Finances (a withdrawal strategy, not just a number), Relationships (what does daily life look like with your spouse?), and Logistics (can anyone access your accounts if something happens?).",
+        steps:["Read The Retirement Trap from start to finish\u2014don\u2019t skip chapters","Complete the Decision Audit (Tool 1) before making any retirement decision","If you\u2019re within 12 months of retiring, delay until you\u2019ve addressed gaps","Schedule conversations: spouse (Ch. 11), financial advisor (Ch. 6), estate attorney (Ch. 14)"],
+        chapterNote:"Timeline: 6\u201312 months of structured prep. Start with Chapter 1 (Decision Audit), then Chapters 2\u20134 (Identity/Purpose), then your lowest-scoring category."},
+    notReady:{badge:"NOT READY",badgeClass:"badge-not",headline:"Don\u2019t Retire Yet",
+        body:'<p>If you retired tomorrow, you would struggle. Not because you lack resources\u2014because you lack preparation. Retirement isn\u2019t a vacation. It\u2019s a life redesign. Right now, you have no design.</p><p><strong>Hard truth:</strong> You\u2019re likely focused on one question: \u201cDo I have enough money?\u201d That\u2019s the wrong question. The right question is: \u201cAm I ready for what comes after the paycheck stops?\u201d Based on your answers, you\u2019re not.</p><p>Here\u2019s what happens if you retire now: Months 1\u20133, a honeymoon phase that feels great. Months 4\u20136, restlessness and shapeless days. Months 7\u201312, identity crisis, marriage friction, social isolation. Year 2+, you either course-correct or drift into depression, health decline, and resentment.</p>',
+        bodyPlain:"If you retired tomorrow, you would struggle. Not because you lack resources - because you lack preparation. Retirement isn't a vacation. It's a life redesign. Right now, you have no design.\n\nHard truth: You're likely focused on one question: \"Do I have enough money?\" That's the wrong question. The right question is: \"Am I ready for what comes after the paycheck stops?\" Based on your answers, you're not.\n\nHere's what happens if you retire now: Months 1-3, a honeymoon phase that feels great. Months 4-6, restlessness and shapeless days. Months 7-12, identity crisis, marriage friction, social isolation. Year 2+, you either course-correct or drift into depression, health decline, and resentment.",
+        steps:["Don\u2019t set a retirement date yet\u2014you\u2019re not ready","Read The Retirement Trap cover to cover\u2014this is your roadmap","Work through every tool as you read each chapter","Build a withdrawal strategy (not just a portfolio balance)","Define what you\u2019ll do with your time\u2014actual plans, not \u201crelax\u201d","Have explicit conversations with your spouse about daily life","Update legal documents and organize your digital estate","Get a comprehensive health screening and build a fitness baseline","Retake this quiz in 6 months\u2014don\u2019t retire until you score 28+"],
+        chapterNote:"Timeline: 12\u201318 months minimum. Start immediately with Chapter 1 (Decision Audit). Don\u2019t skip ahead."}
 };
-let current=0, answers=Array(15).fill(null);
-function renderQuestion(){
-    const q=questions[current];
-    document.getElementById('app').innerHTML=`
-        <div class="quiz-header"><h1>Are You Really Ready to Retire?</h1><div class="subtitle">A 15-question assessment from The Retirement Trap</div></div>
-        <div class="progress-wrap"><div class="progress-info"><span>Question ${current+1} of 15</span><span>${Math.round((current+1)/15*100)}%</span></div><div class="progress-bar"><div class="progress-fill" style="width:${(current+1)/15*100}%"></div></div></div>
-        <div class="question-cat">${q.cat}</div>
-        <div class="question-text">${q.q}</div>
-        <div style="margin-top:16px">${q.a.map((a,i)=>`<div class="option${answers[current]===i?' selected':''}" onclick="answers[${current}]=${i};renderQuestion()"><div class="option-radio"></div><div>${a}</div></div>`).join('')}</div>
-        <div class="btn-row">${current>0?'<button class="btn btn-back" onclick="current--;renderQuestion()">Back</button>':''}<button class="btn btn-next" onclick="${current<14?'if(answers[current]!==null){current++;renderQuestion()}':'showResults()'}" ${answers[current]===null?'disabled':''}>${current===14?'See My Results':'Next'}</button><button class="btn btn-cancel" onclick="confirmCancel()">Cancel</button></div>`;
+
+let current = 0, answers = Array(15).fill(null);
+const PARENT_URL = 'https://TheRetirementTrap.com';
+
+// ─── Utilities ───
+function exitQuiz() {
+    if (window.parent !== window) { window.parent.location.href = PARENT_URL; }
+    else { window.close(); setTimeout(() => { window.location.href = PARENT_URL; }, 300); }
 }
-function confirmCancel(){if(confirm('Are you sure you want to quit the quiz?'))closeQuiz();}
-function closeQuiz(){window.close();setTimeout(()=>{window.location.href='https://TheRetirementTrap.com'},300);}
-function getCategoryScores(){
-    const cats={},order=["Identity & Purpose","Financial Readiness","Relationships & Household","Health & Longevity","Logistics & Planning"];
-    order.forEach(c=>cats[c]={score:0,max:0});
-    questions.forEach((q,i)=>{cats[q.cat].score+=(answers[i]!==null?answers[i]:0);cats[q.cat].max+=3;});
+function showModal(html) { document.getElementById('modal').innerHTML = '<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal">' + html + '</div></div>'; }
+function closeModal() { document.getElementById('modal').innerHTML = ''; }
+function getCategoryScores() {
+    const cats = {}, order = ["Identity & Purpose","Financial Readiness","Relationships & Household","Health & Longevity","Logistics & Planning"];
+    order.forEach(c => cats[c] = {score:0,max:0});
+    questions.forEach((q,i) => { cats[q.cat].score += (answers[i] !== null ? answers[i] : 0); cats[q.cat].max += 3; });
     return cats;
 }
-function showResults(){
-    const total=answers.reduce((s,i)=>s+(i!==null?i:0),0), cats=getCategoryScores();
-    let tier;
-    if(total>=38) tier=tierData.ready;
-    else if(total>=28) tier=tierData.almost;
-    else if(total>=16) tier=tierData.work;
-    else tier=tierData.notReady;
-    const catColors={"Identity & Purpose":"#6366f1","Financial Readiness":"#059669","Relationships & Household":"#d97706","Health & Longevity":"#dc2626","Logistics & Planning":"#2563eb"};
-    const catHTML=Object.entries(cats).map(([name,data])=>{
-        const pct=Math.round(data.score/data.max*100), color=catColors[name]||'#1e40af';
-        return `<div class="cat-item"><div class="cat-left"><div class="cat-dot" style="background:${color}"></div><div class="cat-name">${name}</div></div><div class="cat-right"><div class="cat-score-text">${data.score}/${data.max}</div><div class="cat-bar-bg"><div class="cat-bar-fill" style="width:${pct}%;background:${color}"></div></div></div></div>`;
+function getTier(total) {
+    if (total >= 38) return tierData.ready;
+    if (total >= 28) return tierData.almost;
+    if (total >= 16) return tierData.work;
+    return tierData.notReady;
+}
+
+// ─── Cancel confirm ───
+function confirmCancel() {
+    showModal('<div class="confirm-modal"><h3 style="font-family:Merriweather,Georgia,serif;font-size:18px;margin-bottom:16px">Are you sure you want to quit?</h3><p>Your progress will not be saved.</p><div class="confirm-btns"><button class="btn btn-danger" onclick="exitQuiz()">Yes</button><button class="btn btn-back" onclick="closeModal()">No</button></div></div>');
+}
+
+// ─── Render question ───
+function renderQuestion() {
+    const q = questions[current];
+    document.getElementById('app').innerHTML =
+        '<div class="quiz-header"><h1>Are You Really Ready to Retire?</h1><div class="subtitle">A 15-question assessment from The Retirement Trap</div></div>' +
+        '<div class="progress-wrap"><div class="progress-info"><span>Question ' + (current+1) + ' of 15</span><span>' + Math.round((current+1)/15*100) + '%</span></div><div class="progress-bar"><div class="progress-fill" style="width:' + ((current+1)/15*100) + '%"></div></div></div>' +
+        '<div class="question-cat">' + q.cat + '</div>' +
+        '<div class="question-text">' + q.q + '</div>' +
+        '<div style="margin-top:16px">' + q.a.map((a,i) => '<div class="option' + (answers[current]===i?' selected':'') + '" onclick="answers['+current+']='+i+';renderQuestion()"><div class="option-radio"></div><div>'+a+'</div></div>').join('') + '</div>' +
+        '<div class="btn-row">' +
+            (current > 0 ? '<button class="btn btn-back" onclick="current--;renderQuestion()">Back</button>' : '') +
+            '<button class="btn btn-next" onclick="' + (current<14 ? 'if(answers[current]!==null){current++;renderQuestion()}' : 'showResults()') + '" ' + (answers[current]===null?'disabled':'') + '>' + (current===14?'See My Results':'Next') + '</button>' +
+            '<button class="btn btn-cancel" onclick="confirmCancel()">Cancel</button>' +
+        '</div>';
+}
+
+// ─── Results ───
+function showResults() {
+    const total = answers.reduce((s,i) => s+(i!==null?i:0), 0);
+    const cats = getCategoryScores();
+    const tier = getTier(total);
+    const catColors = {"Identity & Purpose":"#6366f1","Financial Readiness":"#059669","Relationships & Household":"#d97706","Health & Longevity":"#dc2626","Logistics & Planning":"#2563eb"};
+    const catHTML = Object.entries(cats).map(([name,data]) => {
+        const pct = Math.round(data.score/data.max*100), color = catColors[name]||'#1e40af';
+        return '<div class="cat-item"><div class="cat-left"><div class="cat-dot" style="background:'+color+'"></div><div class="cat-name">'+name+'</div></div><div class="cat-right"><div class="cat-score-text">'+data.score+'/'+data.max+'</div><div class="cat-bar-bg"><div class="cat-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div></div></div>';
     }).join('');
-    document.getElementById('app').innerHTML=`
-        <div class="results-container">
-            <div class="results-top"><div class="readiness-badge ${tier.badgeClass}">${tier.badge}</div><div class="results-score">${total}</div><div class="results-score-label">out of 45 points</div></div>
-            <div class="results-section"><h2 class="results-headline">${tier.headline}</h2><div class="results-body">${tier.body}</div></div>
-            <div class="next-steps"><h3>Your Next Steps</h3><ul>${tier.steps.map(s=>`<li>${s}</li>`).join('')}</ul><div class="chapter-note">${tier.chapterNote}</div></div>
-            <div class="breakdown"><h3>Scores by Category</h3>${catHTML}</div>
-            <div class="cta-box"><p>Ready to build your retirement roadmap?</p><a href="https://www.amazon.com/dp/YOUR_ASIN" target="_blank">Get The Retirement Trap \u2192</a></div>
-            <div class="action-row">
-                <button class="action-btn" onclick="doPrint()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print</button>
-                <button class="action-btn" onclick="doSave()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Save</button>
-                <button class="action-btn" onclick="doEmail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>Email</button>
-                <button class="action-btn" onclick="closeQuiz()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Exit</button>
-            </div>
-        </div>`;
+
+    document.getElementById('app').innerHTML =
+        '<div class="results-container">' +
+            '<div class="results-top"><div class="readiness-badge '+tier.badgeClass+'">'+tier.badge+'</div><div class="results-score">'+total+'</div><div class="results-score-label">out of 45 points</div></div>' +
+            '<div class="results-section"><h2 class="results-headline">'+tier.headline+'</h2><div class="results-body">'+tier.body+'</div></div>' +
+            '<div class="next-steps"><h3>Your Next Steps</h3><ul>'+tier.steps.map(s=>'<li>'+s+'</li>').join('')+'</ul><div class="chapter-note">'+tier.chapterNote+'</div></div>' +
+            '<div class="breakdown"><h3>Scores by Category</h3>'+catHTML+'</div>' +
+            '<div class="cta-box"><p>Ready to build your retirement roadmap?</p><a href="https://www.amazon.com/dp/YOUR_ASIN" target="_blank">Get The Retirement Trap \u2192</a></div>' +
+            '<div class="action-row">' +
+                '<button class="action-btn" onclick="doPrint()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Print</button>' +
+                '<button class="action-btn" onclick="doSavePDF()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Save</button>' +
+                '<button class="action-btn" onclick="doEmail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>Email</button>' +
+                '<button class="action-btn" onclick="exitQuiz()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Exit</button>' +
+            '</div>' +
+        '</div>';
 }
-function doPrint(){window.print();setTimeout(closeQuiz,1500);}
-function doSave(){
-    const total=answers.reduce((s,i)=>s+(i!==null?i:0),0), cats=getCategoryScores();
-    let tier; if(total>=38)tier=tierData.ready;else if(total>=28)tier=tierData.almost;else if(total>=16)tier=tierData.work;else tier=tierData.notReady;
-    let t="ARE YOU REALLY READY TO RETIRE?\nQuiz Results from The Retirement Trap\n"+"=".repeat(50)+"\n\n";
-    t+=`TOTAL SCORE: ${total} / 45  |  STATUS: ${tier.badge}\n\n${tier.headline}\n${"─".repeat(40)}\n\n`;
-    t+=tier.body.replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim()+"\n\n";
-    t+="NEXT STEPS:\n";tier.steps.forEach((s,i)=>{t+=`  ${i+1}. ${s}\n`;});
-    t+=`\n${tier.chapterNote}\n\nCATEGORY BREAKDOWN:\n${"─".repeat(40)}\n`;
-    Object.entries(cats).forEach(([n,d])=>{const bar="\u2588".repeat(Math.round(d.score/d.max*10))+"\u2591".repeat(10-Math.round(d.score/d.max*10));t+=`  ${n.padEnd(28)} ${d.score}/${d.max}  ${bar}\n`;});
-    t+="\nYOUR ANSWERS:\n"+"─".repeat(40)+"\n";
-    questions.forEach((q,i)=>{t+=`\n${i+1}. ${q.q}\n   \u2192 ${q.a[answers[i]]} (${answers[i]} pts)\n`;});
-    t+="\n"+"=".repeat(50)+"\nLearn more: https://TheRetirementTrap.com\n";
-    const blob=new Blob([t],{type:'text/plain'}),a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);a.download='Retirement-Quiz-Results.txt';a.click();URL.revokeObjectURL(a.href);
-    setTimeout(closeQuiz,1500);
+
+// ─── Print ───
+function doPrint() { window.print(); }
+
+// ─── Save PDF ───
+function doSavePDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'mm',format:'letter'});
+    const total = answers.reduce((s,i)=>s+(i!==null?i:0),0);
+    const cats = getCategoryScores();
+    const tier = getTier(total);
+    const W=215.9, margin=20, cW=W-margin*2;
+    let y=20;
+
+    // Header
+    doc.setFillColor(15,23,42);
+    doc.rect(0,0,W,50,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(22); doc.setFont('helvetica','bold');
+    doc.text('Are You Really Ready to Retire?',W/2,22,{align:'center'});
+    doc.setFontSize(11); doc.setFont('helvetica','normal');
+    doc.text('Quiz Results from The Retirement Trap',W/2,32,{align:'center'});
+
+    // Badge
+    const bc={ready:[22,163,74],almost:[59,130,246],work:[245,158,11],notReady:[220,38,38]};
+    const tk=total>=38?'ready':total>=28?'almost':total>=16?'work':'notReady';
+    doc.setFillColor(bc[tk][0],bc[tk][1],bc[tk][2]);
+    doc.roundedRect(W-margin-40,38,40,8,2,2,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text(tier.badge,W-margin-20,43.5,{align:'center'});
+
+    y=60;
+    doc.setTextColor(30,64,175); doc.setFontSize(42); doc.setFont('helvetica','bold');
+    doc.text(String(total),margin,y+12);
+    doc.setFontSize(14); doc.setTextColor(120,113,108); doc.setFont('helvetica','normal');
+    doc.text('out of 45 points',margin+30,y+12);
+    y+=24;
+    doc.setDrawColor(231,229,228); doc.line(margin,y,W-margin,y); y+=8;
+
+    // Headline
+    doc.setTextColor(28,25,23); doc.setFontSize(16); doc.setFont('helvetica','bold');
+    const hl=doc.splitTextToSize(tier.headline,cW); doc.text(hl,margin,y); y+=hl.length*7+4;
+
+    // Body
+    doc.setFontSize(10.5); doc.setFont('helvetica','normal'); doc.setTextColor(68,64,60);
+    const bl=doc.splitTextToSize(tier.bodyPlain,cW);
+    bl.forEach(line=>{if(y>260){doc.addPage();y=20;} doc.text(line,margin,y); y+=5;}); y+=6;
+
+    // Steps box
+    const sh=12+tier.steps.length*7+14;
+    if(y+sh>260){doc.addPage();y=20;}
+    doc.setFillColor(248,249,250); doc.roundedRect(margin,y,cW,sh,2,2,'F'); y+=8;
+    doc.setTextColor(28,25,23); doc.setFontSize(12); doc.setFont('helvetica','bold');
+    doc.text('Your Next Steps',margin+6,y); y+=7;
+    doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(68,64,60);
+    tier.steps.forEach((s,i)=>{
+        const sl=doc.splitTextToSize((i+1)+'.  '+s,cW-16);
+        sl.forEach(l=>{doc.text(l,margin+8,y);y+=5;}); y+=1;
+    }); y+=4;
+    doc.setFontSize(9); doc.setTextColor(120,113,108); doc.setFont('helvetica','italic');
+    const nl=doc.splitTextToSize(tier.chapterNote,cW-16);
+    nl.forEach(l=>{doc.text(l,margin+8,y);y+=4.5;}); y+=10;
+
+    // Categories
+    if(y>220){doc.addPage();y=20;}
+    doc.setTextColor(28,25,23); doc.setFontSize(12); doc.setFont('helvetica','bold');
+    doc.text('Scores by Category',margin,y); y+=8;
+    const cp={"Identity & Purpose":[99,102,241],"Financial Readiness":[5,150,105],"Relationships & Household":[217,119,6],"Health & Longevity":[220,38,38],"Logistics & Planning":[37,99,235]};
+    Object.entries(cats).forEach(([n,d])=>{
+        if(y>260){doc.addPage();y=20;}
+        const pct=d.score/d.max,cc=cp[n]||[30,64,175];
+        doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(28,25,23);
+        doc.text(n,margin,y);
+        doc.setFont('helvetica','bold'); doc.setTextColor(87,83,78);
+        doc.text(d.score+'/'+d.max,margin+100,y);
+        doc.setFillColor(240,240,240); doc.roundedRect(margin+115,y-3,50,4,1,1,'F');
+        if(pct>0){doc.setFillColor(cc[0],cc[1],cc[2]); doc.roundedRect(margin+115,y-3,50*pct,4,1,1,'F');}
+        y+=9;
+    });
+    y+=8;
+    doc.setDrawColor(231,229,228); doc.line(margin,y,W-margin,y); y+=8;
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(120,113,108);
+    doc.text('Learn more at TheRetirementTrap.com',W/2,y,{align:'center'});
+
+    doc.save('Retirement-Quiz-Results.pdf');
 }
-function doEmail(){
-    document.getElementById('modal').innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)cancelEmail()"><div class="modal"><h3>Email Your Results</h3><p style="color:#78716c;font-size:14px;margin-bottom:14px">We'll send your full score breakdown and personalized next steps.</p><input id="emailField" type="email" placeholder="Enter your email address"><div class="modal-btns"><button class="btn btn-next" onclick="sendEmail()">Send</button><button class="btn btn-back" onclick="cancelEmail()">Cancel</button></div></div></div>`;
-    setTimeout(()=>document.getElementById('emailField').focus(),100);
+
+// ─── Email ───
+function doEmail() {
+    showModal(
+        '<h3>Email Your Results</h3>' +
+        '<p class="modal-subtitle">We\u2019ll send your full score breakdown and personalized next steps.</p>' +
+        '<input id="emailName" type="text" placeholder="Your name">' +
+        '<input id="emailField" type="email" placeholder="Your email address">' +
+        '<label class="checkbox-label"><input type="checkbox" id="emailSubscribe" checked><span>Yes, send me retirement planning tips and updates from The Retirement Trap. Unsubscribe anytime.</span></label>' +
+        '<div class="modal-btns">' +
+            '<button class="btn btn-next" id="sendBtn" onclick="sendEmail()">Send</button>' +
+            '<button class="btn btn-back" onclick="closeModal()">Cancel</button>' +
+        '</div>'
+    );
+    setTimeout(()=>document.getElementById('emailName').focus(),100);
 }
-function sendEmail(){
-    const email=document.getElementById('emailField').value;
-    if(!email||!email.includes('@')||!email.includes('.')){alert('Please enter a valid email address.');return;}
-    const total=answers.reduce((s,i)=>s+(i!==null?i:0),0);
-    console.log('Email results to:',email,'Score:',total,'Answers:',answers);
-    alert('Results sent to '+email+'!');
-    document.getElementById('modal').innerHTML='';
-    setTimeout(closeQuiz,500);
+
+async function sendEmail() {
+    const name = document.getElementById('emailName').value.trim();
+    const email = document.getElementById('emailField').value.trim();
+    const subscribe = document.getElementById('emailSubscribe').checked;
+    const btn = document.getElementById('sendBtn');
+
+    // Validate
+    document.getElementById('emailName').classList.remove('field-error');
+    document.getElementById('emailField').classList.remove('field-error');
+    if (!name) { document.getElementById('emailName').classList.add('field-error'); document.getElementById('emailName').focus(); return; }
+    if (!email || !email.includes('@') || !email.includes('.')) { document.getElementById('emailField').classList.add('field-error'); document.getElementById('emailField').focus(); return; }
+
+    // Build results text
+    const total = answers.reduce((s,i)=>s+(i!==null?i:0),0);
+    const cats = getCategoryScores();
+    const tier = getTier(total);
+
+    let catText = '';
+    Object.entries(cats).forEach(([n,d]) => { catText += n + ': ' + d.score + '/' + d.max + '\n'; });
+
+    let stepsText = '';
+    tier.steps.forEach((s,i) => { stepsText += (i+1) + '. ' + s + '\n'; });
+
+    const templateParams = {
+        to_email: '',  // will be set per send
+        from_name: name,
+        from_email: email,
+        score: total + '/45',
+        status: tier.badge,
+        headline: tier.headline,
+        body: tier.bodyPlain,
+        steps: stepsText,
+        chapter_note: tier.chapterNote,
+        categories: catText,
+        subscribe: subscribe ? 'Yes' : 'No'
+    };
+
+    // Show sending state
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Sending...';
+
+    try {
+        // Send to quiz taker
+        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { ...templateParams, to_email: email });
+
+        // Send copy to owner
+        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, { ...templateParams, to_email: OWNER_EMAIL });
+
+        // Success
+        showModal(
+            '<div class="confirm-modal">' +
+                '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" style="margin-bottom:16px"><circle cx="12" cy="12" r="10"/><path d="M8 12l2.5 2.5L16 9"/></svg>' +
+                '<h3 style="margin-bottom:8px">Results Sent!</h3>' +
+                '<p style="font-size:14px;color:#57534e">Your results have been emailed to <strong>' + email + '</strong></p>' +
+                (subscribe ? '<p style="font-size:13px;color:#78716c;margin-top:8px">Thank you for subscribing! We\u2019ll be in touch.</p>' : '') +
+                '<div class="confirm-btns" style="margin-top:16px"><button class="btn btn-next" style="flex:none;min-width:120px" onclick="closeModal()">Done</button></div>' +
+            '</div>'
+        );
+    } catch (err) {
+        console.error('EmailJS error:', err);
+        showModal(
+            '<div class="confirm-modal">' +
+                '<h3 style="margin-bottom:12px;color:#dc2626">Unable to Send</h3>' +
+                '<p style="font-size:14px;color:#57534e">Something went wrong. Please try again or use the Save/Print option instead.</p>' +
+                '<div class="confirm-btns" style="margin-top:16px"><button class="btn btn-back" onclick="closeModal()">Close</button></div>' +
+            '</div>'
+        );
+    }
 }
-function cancelEmail(){document.getElementById('modal').innerHTML='';}
+
 renderQuestion();
 </script>
 </body>
