@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Are You Ready to Retire? | The Retirement Trap</title>
     <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700;900&family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+   <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-R9P5CJWLNB"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-R9P5CJWLNB');</script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <style>
@@ -212,6 +216,9 @@ function showResults() {
     const total = answers.reduce((s,i) => s+(i!==null?i:0), 0);
     const cats = getCategoryScores();
     const tier = getTier(total);
+    // Track quiz completion
+    gtag('event', 'quiz_completed', { event_category: 'quiz', event_label: tier.badge, value: total });
+
     const catColors = {"Identity & Purpose":"#6366f1","Financial Readiness":"#059669","Relationships & Household":"#d97706","Health & Longevity":"#dc2626","Logistics & Planning":"#2563eb"};
     const catHTML = Object.entries(cats).map(([name,data]) => {
         const pct = Math.round(data.score/data.max*100), color = catColors[name]||'#1e40af';
