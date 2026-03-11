@@ -197,6 +197,11 @@ function confirmCancel() {
 
 // ─── Render question ───
 function renderQuestion() {
+   // Track quiz start on first question
+    if (current === 0 && !window._quizStartTracked) {
+        gtag('event', 'quiz_started', { event_category: 'quiz', event_label: 'retirement_readiness' });
+        window._quizStartTracked = true;
+    }
     const q = questions[current];
     document.getElementById('app').innerHTML =
         '<div class="quiz-header"><h1>Are You Really Ready to Retire?</h1><div class="subtitle">A 15-question assessment from The Retirement Trap</div></div>' +
